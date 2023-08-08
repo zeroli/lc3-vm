@@ -4,6 +4,11 @@
 #include <stdint.h>
 #include <string.h>
 #include <signal.h>
+
+#ifdef _WIN32
+#include <Windows.h>
+#include <conio.h>  // _kbhit
+#else
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -11,6 +16,8 @@
 #include <sys/types.h>
 #include <sys/termios.h>
 #include <sys/mman.h>
+#endif
+
 
 /* Registers */
 enum {
@@ -132,8 +139,16 @@ int read_image(const char* image_path) {
     return 0;
 }
 
+#ifdef _WIN32
+HANDLE hStdin = INVALID_HANDLE_VALUE;
+DWORD fdwMode, fdwOldMode;
+#endif
+
 /* Check Key */
 uint16_t check_key() {
+#ifdef _WIN32
+    return WaitForSingleObject(hStdin, 1000) == WAIT_OBJECT_0 && _kbhit();
+#else
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(STDIN_FILENO, &readfds);
@@ -142,6 +157,7 @@ uint16_t check_key() {
     timeout.tv_sec = 0;
     timeout.tv_usec = 0;
     return select(1, &readfds, NULL, NULL, &timeout) != 0;
+#endif
 }
 
 /* Memory Access */
@@ -162,6 +178,21 @@ uint16_t mem_read(uint16_t address) {
     return memory[address];
 }
 
+#ifdef _WIN32
+void disable_input_buffering() {
+    hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    GetConsoleMode(hStdin, &fdwOldMode);  /* save old mode */
+    fdwMode = fdwOldMode
+                    ^ ENABLE_ECHO_INPUT  /* no input echo */
+                    ^ ENABLE_LINE_INPUT;  /* return when one or
+                                                            more characters are available */
+    SetConsoleMode(hStdin, fdwMode);  /* set new mode */
+    FlushConsoleInputBuffer(hStdin);  /* clear buffer */
+}
+void restore_input_buffering() {
+    SetConsoleMode(hStdin, fdwOldMode);
+}
+#else
 /* Input Buffering */
 struct termios original_tio;
 
@@ -175,6 +206,7 @@ void disable_input_buffering() {
 void restore_input_buffering() {
     tcsetattr(STDIN_FILENO, TCSANOW, &original_tio);
 }
+#endif
 
 /* Handle Interrupt */
 void handle_interrupt(int signal) {

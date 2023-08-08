@@ -80,7 +80,7 @@ uint16_t reg[R_COUNT];
 /* Functions */
 /* Sign Extend */
 uint16_t sign_extend(uint16_t x, int bit_count) {
-    if ((x >> bit_count) & 0x1) {
+    if ((x >> (bit_count - 1)) & 0x1) {
         return x | (0xFFFF << bit_count);
     }
     return x;
@@ -190,7 +190,7 @@ int main(int argc, const char* argv[]) {
         printf("lc3 [image-file1] ...\n");
         exit(2);
     }
-    
+
     for (int j = 1; j < argc; ++j) {
         if (read_image(argv[j])) {
             printf("failed to load image: %s\n", argv[j]);
@@ -219,7 +219,7 @@ int main(int argc, const char* argv[]) {
                     r0 = (instr >> 9) & 0x7; /* destination register (DR) */
                     r1 = (instr >> 6) & 0x7; /* first operand (SR1) */
                     imm_flag = (instr >> 5) & 0x1; /* immediate mode */
-                
+
                     if (imm_flag) {
                         imm5 = sign_extend(instr & 0x1F, 5);
                         reg[r0] = reg[r1] + imm5;
@@ -227,7 +227,7 @@ int main(int argc, const char* argv[]) {
                         r2 = instr & 0x7;
                         reg[r0] = reg[r1] + reg[r2];
                     }
-                
+
                     update_flags(r0);
                 }
                 break;
@@ -235,7 +235,7 @@ int main(int argc, const char* argv[]) {
                     r0 = (instr >> 9) & 0x7;
                     r1 = (instr >> 6) & 0x7;
                     imm_flag = (instr >> 5) & 0x1;
-                
+
                     if (imm_flag) {
                         imm5 = sign_extend(instr & 0x1F, 5);
                         reg[r0] = reg[r1] & imm5;
@@ -250,7 +250,7 @@ int main(int argc, const char* argv[]) {
             case OP_NOT: { /* NOT */
                     r0 = (instr >> 9) & 0x7;
                     r1 = (instr >> 6) & 0x7;
-                
+
                     reg[r0] = ~reg[r1];
                     update_flags(r0);
                 }
@@ -273,7 +273,7 @@ int main(int argc, const char* argv[]) {
                     r1 = (instr >> 6) & 0x7;
                     uint16_t long_pc_offset = sign_extend(instr & 0x7ff, 11);
                     uint16_t long_flag = (instr >> 11) & 1;
-                
+
                     reg[R_R7] = reg[R_PC];
                     if (long_flag) {
                         reg[R_PC] += long_pc_offset;  /* JSR */
